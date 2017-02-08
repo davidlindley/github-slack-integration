@@ -202,7 +202,7 @@ var createSlackMessage = (pullRequests) => {
     }
   }
   message += CONFIG.AUTO_DEPLOYMENT_MESSAGE
-        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${CONFIG.REPO} in ${howLongUntilYLDeploy()} minutes:stopwatch:*`;
+        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${CONFIG.REPO} in ${howLongUntilYLDeploy()} minutes:stopwatch:*`
         : '';
 
   slackNotifier(message, CONFIG.SLACK_CHANNEL);
