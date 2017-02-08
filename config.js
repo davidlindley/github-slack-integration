@@ -7,7 +7,7 @@ let CONFIG = {
   COMPANY:,
   REPO:,
   IGNORE_LABLES:,
-  AUTO_DEPLOYMENT_MESSAGE: false
+  AUTO_DEPLOYMENT_MESSAGE:
 }
 
 module.exports = CONFIG;
