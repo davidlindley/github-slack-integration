@@ -1,13 +1,24 @@
 let CONFIG = {
-  GITHUB_KEY:,
-  SLACK_URI:,
-  SLACK_ICON:,
-  SLACK_NAME:,
-  SLACK_CHANNEL:,
-  COMPANY:,
-  REPO:,
-  IGNORE_LABLES:,
-  AUTO_DEPLOYMENT_MESSAGE:
-}
-
+    GITHUB_KEY: '',
+    COMPANY: '',
+    SLACK_URI: '',
+    REPOS: [
+      {
+        REPO_NAME: '',
+        SLACK_ICON: '',
+        SLACK_NAME: '',
+        SLACK_CHANNEL: '',
+        IGNORE_LABLES: [],
+        AUTO_DEPLOYMENT_MESSAGE: true
+      },
+      {
+        REPO_NAME: '',
+        SLACK_ICON: '',
+        SLACK_NAME: '',
+        SLACK_CHANNEL: '',
+        IGNORE_LABLES: [],
+        AUTO_DEPLOYMENT_MESSAGE: true
+      }
+    ]
+};
 module.exports = CONFIG;

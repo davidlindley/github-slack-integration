@@ -29,18 +29,20 @@ var initAPILinks = () => {
  * @param {string} message - The message to send
  * @returns {string} channel - The channel to send to. Can be users by using the @<USERNAME>
  */
-var slackNotifier = (message, channel) => {
-  slack.webhook({
-    channel: channel,
-    username: CONFIG.SLACK_NAME,
-    icon_emoji: CONFIG.SLACK_ICON,
-    text: message
-  }, function(err, response) {
-    if (err) {
-      console.log(err);
-    } else {
-      console.log('message sent!');
-    }
+var slackNotifier = (message, channel, name, icon) => {
+  return new Promise((resolve, reject) => {
+    slack.webhook({
+      channel: channel,
+      username: name,
+      icon_emoji: icon,
+      text: message
+    }, function(err, response) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
   });
 };
 
@@ -49,11 +51,11 @@ var slackNotifier = (message, channel) => {
  * @desc Gets current pull requests
  * @returns {Promise} - A promise which when resolved will return the pull requests
  */
-var getPullRequests = () => {
+var getPullRequests = (repoName) => {
   return new Promise((resolve, reject) => {
     github.pullRequests.getAll({
       owner: CONFIG.COMPANY,
-      repo: CONFIG.REPO
+      repo: repoName
     }).then((pullRequests) => {
       resolve(pullRequests);
     }, (error) => {
@@ -69,11 +71,11 @@ var getPullRequests = () => {
  * @returns {Promise} - A promise which when resolved will return pull requests
  * with the lables attached
  */
-var addIssueLabels = (pr) => {
+var addIssueLabels = (pr, repoName) => {
   return new Promise((resolve, reject) => {
       github.issues.getIssueLabels({
       owner: CONFIG.COMPANY,
-      repo: CONFIG.REPO,
+      repo: repoName,
       number: pr.number
     }).then((prLabels) => {
       // Clean up the response by removing meta data
@@ -97,13 +99,13 @@ var addIssueLabels = (pr) => {
  * @returns {Promise} - Promise when resolved returns object
  * { mergeNeeded: [], noMergeNeeded: [] }
  */
-var processPullRequests = (pullRequests) => {
+var processPullRequests = (pullRequests, repoDetails) => {
   return new Promise((resolve, reject) => {
     var labelPromises = [];
 
     // Loop through each PR to get its labels
     pullRequests.forEach((pr) => {
-      labelPromises.push(addIssueLabels(pr));
+      labelPromises.push(addIssueLabels(pr, repoDetails.REPO_NAME));
     });
 
     Promise.all(labelPromises).then((pullRequests) => {
@@ -115,7 +117,7 @@ var processPullRequests = (pullRequests) => {
       pullRequests.forEach((pr) => {
         var noMerge = false;
         pr.labels.forEach((label) => {
-          if (CONFIG.IGNORE_LABLES.indexOf(label.name) > -1) {
+          if (repoDetails.IGNORE_LABLES.indexOf(label.name) > -1) {
             noMerge = true;
             return;
           }
@@ -175,47 +177,65 @@ var hoursOld = (date) => {
  * @desc Uses the pullrequests to create a custom slack message
  * @param {Array} pullRequests - Current pull requests
  */
-var createSlackMessage = (pullRequests) => {
+var createSlackMessage = (pullRequests, repo) => {
   if (!pullRequests) {
     pullRequests = {
       mergeNeeded : [],
       noMergeNeeded: []
     };
   }
-  var message = `*The current status of github ${CONFIG.COMPANY}-${CONFIG.REPO} is:*\n`;
-  message += `>Outstanding pull requests: ${pullRequests.mergeNeeded.length + pullRequests.noMergeNeeded.length}\n`;
-  message += `>Don\'t merge now: ${pullRequests.noMergeNeeded.length}\n`;
-  message += `>Review Needed: ${pullRequests.mergeNeeded.length}\n\n`;
+  var message = `:vertical_traffic_light: *The current status of github ${CONFIG.COMPANY}-${repo.REPO_NAME} is:*\n`;
 
-  if (pullRequests.mergeNeeded.length > 0) {
-    message += `*Review Needed:*\n`;
+  if (pullRequests.mergeNeeded.length === 0 && pullRequests.noMergeNeeded.length === 0) {
+    message += `>No active pull requests :smile:\n`;
+  } else {
+    message += `>Outstanding pull requests: ${pullRequests.mergeNeeded.length + pullRequests.noMergeNeeded.length}\n`;
+    message += `>Don\'t merge now: ${pullRequests.noMergeNeeded.length}\n`;
+    message += `>Review Needed: ${pullRequests.mergeNeeded.length}\n\n`;
 
-    for (var i = 0; i < pullRequests.mergeNeeded.length; i++) {
-      var pr = pullRequests.mergeNeeded[i];
-      var createdDate = new Date(pr.created_at);
-      var prAgeHours = hoursOld(createdDate);
+    if (pullRequests.mergeNeeded.length > 0) {
+      message += `*Review Needed:*\n`;
 
-      message += `>* (${i + 1}) ${pr.title}*`
-      message += pr.body ? ` - ${pr.body}\n` : `\n`;
-      message += `>_Rasied by ${pr.user.login} ${getReminderMessage(prAgeHours)}_\n`;
-      message +=  `>${pr.html_url}\n\n`;
+      for (var i = 0; i < pullRequests.mergeNeeded.length; i++) {
+        var pr = pullRequests.mergeNeeded[i];
+        var createdDate = new Date(pr.created_at);
+        var prAgeHours = hoursOld(createdDate);
+
+        message += `>* (${i + 1}) ${pr.title}*`
+        message += pr.body ? ` - ${pr.body}\n` : `\n`;
+        message += `>_Rasied by ${pr.user.login} ${getReminderMessage(prAgeHours)}_\n`;
+        message +=  `>${pr.html_url}\n\n`;
+      }
     }
   }
-  message += CONFIG.AUTO_DEPLOYMENT_MESSAGE
-        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${CONFIG.REPO} in ${howLongUntilYLDeploy()} minutes:stopwatch:*`
+  message += repo.AUTO_DEPLOYMENT_MESSAGE
+        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${repo.REPO_NAME} in ${howLongUntilYLDeploy()} minutes:stopwatch:*`
         : '';
 
-  slackNotifier(message, CONFIG.SLACK_CHANNEL);
+  return message;
 }
 
 /****************/
 /* Runs the app */
 /****************/
 initAPILinks();
-getPullRequests()
-.then((pullRequests) => {
-  processPullRequests(pullRequests)
-  .then((processedPullRequests) => {
-    createSlackMessage(processedPullRequests);
-  });
+var allRepoMessages = [];
+CONFIG.REPOS.forEach((repo) => {
+  allRepoMessages.push(new Promise((resolve, reject) => {
+    getPullRequests(repo.REPO_NAME)
+    .then((pullRequests) => {
+      processPullRequests(pullRequests, repo)
+      .then((processedPullRequests) => {
+        var message = createSlackMessage(processedPullRequests, repo);
+        slackNotifier(message, repo.SLACK_CHANNEL, repo.SLACK_NAME, repo.SLACK_ICON).then(() => {
+          resolve();
+        });
+      });
+    });
+
+  }));
+});
+
+Promise.all(allRepoMessages).then(() => {
+  console.log('all messages sent');
 });
