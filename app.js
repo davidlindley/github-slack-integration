@@ -214,9 +214,6 @@ var createSlackMessage = (pullRequests) => {
 initAPILinks();
 getPullRequests()
 .then((pullRequests) => {
-  if (pullRequests.length === 0) {
-    createSlackMessage();
-  }
   processPullRequests(pullRequests)
   .then((processedPullRequests) => {
     createSlackMessage(processedPullRequests);
