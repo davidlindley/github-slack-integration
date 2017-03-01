@@ -158,13 +158,18 @@ var getReminderMessage = (hoursOld) => {
 /**
  * @name getNextYorkLabDeployment
  * @desc Works out how long until the next YL deploy
- * @param {number} - minutues until next YL deploy
+ * @param {number} - minutes when YL deploy starts (60 on the hour, 30 half past the hour)
+ * @returns {number} - minutues until next YL deploy
  */
-var howLongUntilYLDeploy = () => {
+var howLongUntilYLDeploy = (deployMins) => {
   // Assumes once per hour
   var now = new Date();
   var mins = now.getMinutes();
-  return 60 - mins;
+  var when = deployMins - mins;
+  if (when < 0) {
+    when = when + 60;
+  }
+  return when;
 };
 
 var hoursOld = (date) => {
@@ -209,7 +214,7 @@ var createSlackMessage = (pullRequests, repo) => {
     }
   }
   message += repo.AUTO_DEPLOYMENT_MESSAGE
-        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${repo.REPO_NAME} in ${howLongUntilYLDeploy()} minutes:stopwatch:*`
+        ? `*:stopwatch: Next Automatic YorkLab Deployment for ${CONFIG.COMPANY}-${repo.REPO_NAME} in ${howLongUntilYLDeploy(repo.YL_WHEN)} minutes:stopwatch:*`
         : '';
 
   return message;
